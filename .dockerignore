@@ -1,0 +1,5 @@
+**
+!Dockerfile
+!src/
+!src/litellm_gateway/
+!src/litellm_gateway/**
