@@ -11,7 +11,7 @@ requires-python = ">=3.12"
 dependencies = []
 
 [project.optional-dependencies]
-dev = ["pytest==8.4.2", "ruff==0.14.0"]
+dev = ["ruff==0.14.0"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -21,7 +21,3 @@ target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP"]
-
-[tool.pytest.ini_options]
-testpaths = ["tests"]
-pythonpath = ["src"]

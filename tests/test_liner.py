@@ -5,11 +5,15 @@ from unittest import IsolatedAsyncioTestCase
 from unittest.mock import AsyncMock, Mock
 
 from litellm.types.utils import ModelResponse
+from support import loopback_only
 
 from litellm_gateway.liner_handler import liner_llm
 
 
 class LinerTests(IsolatedAsyncioTestCase):
+    def setUp(self):
+        self.enterContext(loopback_only())
+
     async def test_sync_and_async_json_and_streaming(self):
         for asynchronous in (False, True):
             for streaming in (False, True):

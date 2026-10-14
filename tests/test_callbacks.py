@@ -3,10 +3,15 @@
 from types import SimpleNamespace
 from unittest import IsolatedAsyncioTestCase
 
+from support import loopback_only
+
 from litellm_gateway.custom_callbacks import proxy_handler_instance as handler
 
 
 class CallbackTests(IsolatedAsyncioTestCase):
+    def setUp(self):
+        self.enterContext(loopback_only())
+
     async def test_flat_rate_billing_and_exclusions(self):
         for model, route, expected in (
             ("exa", "/v1/chat/completions", 0.005),

@@ -1,5 +1,5 @@
-# Match the non-root runtime deployed by dataservices-infra.
-# Pin the upstream digest so builds use the reviewed artifact.
+# Use LiteLLM's non-root runtime to limit process privileges.
+# Pin the digest so builds use the same reviewed base image.
 FROM ghcr.io/berriai/litellm-non_root:v1.84.4@sha256:b6a37a6812de94e55cb22ec45041361af46bb09d630a1cbf0203ac44201441b1
 
 # Keep upstream's entrypoint and command. Tenant configuration is supplied at deployment.

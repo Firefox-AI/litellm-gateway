@@ -12,6 +12,7 @@ for module_name in (
     "litellm",
     "litellm_gateway.custom_callbacks",
     "litellm_gateway.liner_handler",
+    "litellm_gateway.exa_handler",
 ):
     module = importlib.import_module(module_name)
     print(f"Imported {module_name} from {module.__file__}")
@@ -26,4 +27,9 @@ assert any(
     item["provider"] == "liner" and type(item["custom_handler"]).__name__ == "LinerLLM"
     for item in litellm.custom_provider_map
 )
-print("Mounted configuration loaded the billing callback and Liner provider")
+assert any(
+    item["provider"] == "exa_citations"
+    and type(item["custom_handler"]).__name__ == "ExaLLM"
+    for item in litellm.custom_provider_map
+)
+print("Mounted configuration loaded the billing callback and Liner/Exa providers")
