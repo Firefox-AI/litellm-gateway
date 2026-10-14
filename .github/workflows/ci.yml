@@ -29,7 +29,7 @@ jobs:
       - run: python -m pip install -e '.[dev]'
       - run: ruff check .
       - run: ruff format --check .
-      - run: python -m compileall -q src scripts
+      - run: python -m compileall -q src scripts tests
 
   image:
     name: Build and smoke test image
@@ -47,9 +47,18 @@ jobs:
           tags: litellm-gateway:ci
           cache-from: type=gha
           cache-to: type=gha,mode=max
-      - name: Check runtime imports
+      - name: Load mounted configuration and handlers
         run: |
           docker run --rm --network none --entrypoint python \
             --volume "$PWD/scripts/smoke_test.py:/tmp/smoke_test.py:ro" \
-            --env PYTHONPATH=/app \
+            --volume "$PWD/tests/fixtures/config.yaml:/etc/litellm/config.yaml:ro" \
+            --env LITELLM_LOCAL_MODEL_COST_MAP=True \
+            --env DO_NOT_TRACK=True \
             litellm-gateway:ci /tmp/smoke_test.py
+      - name: Test handlers in the runtime image
+        run: |
+          docker run --rm --network none --entrypoint python \
+            --volume "$PWD/tests:/tmp/tests:ro" \
+            --env LITELLM_LOCAL_MODEL_COST_MAP=True \
+            --env DO_NOT_TRACK=True \
+            litellm-gateway:ci -m unittest discover -s /tmp/tests -v
