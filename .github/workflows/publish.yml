@@ -27,7 +27,7 @@ jobs:
         id: litellm
         shell: bash
         run: |
-          VERSION=$(sed -nE 's|^FROM ghcr.io/berriai/litellm:v?([^@[:space:]]+).*|\1|p' Dockerfile)
+          VERSION=$(sed -nE 's|^FROM ghcr.io/berriai/litellm:([^@[:space:]]+).*|\1|p' Dockerfile)
           if [[ ! "$VERSION" =~ ^[a-zA-Z0-9_][a-zA-Z0-9_.-]{0,127}$ ]]; then
             echo "Could not extract a valid LiteLLM version tag from Dockerfile" >&2
             exit 1
