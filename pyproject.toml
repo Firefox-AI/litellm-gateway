@@ -7,7 +7,7 @@ name = "litellm-gateway"
 version = "0.1.0"
 description = "Mozilla AI Platform customizations for the LiteLLM gateway"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 dependencies = []
 
 [project.optional-dependencies]
