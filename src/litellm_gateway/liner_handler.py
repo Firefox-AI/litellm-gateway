@@ -16,7 +16,6 @@ from litellm.llms.custom_httpx.http_handler import (
 )
 from litellm.llms.custom_llm import CustomLLM, CustomLLMError
 from litellm.secret_managers.main import get_secret_str
-from litellm.types.llms.openai import ChatCompletionUsageBlock
 from litellm.types.utils import GenericStreamingChunk, ModelResponse
 
 DEFAULT_API_BASE = "https://platform.liner.com/api/v1/agents/quick-answer"
@@ -24,12 +23,6 @@ DEFAULT_TIMEOUT = 120.0
 LINER_ROLES = ("user", "assistant")
 
 COST_PER_REQUEST = 0.003
-
-# Usage guard to prevent litellm from running tiktoken on streaming requests.
-# Must be non-zero — litellm treats 0 as "no usage" and estimates anyway.
-SENTINEL_USAGE = ChatCompletionUsageBlock(
-    prompt_tokens=1, completion_tokens=1, total_tokens=2
-)
 
 
 def _resolve_api_base(api_base: str | None) -> str:
@@ -173,7 +166,7 @@ def _to_generic_chunk(
         tool_use=None,
         is_finished=is_finished,
         finish_reason=finish_reason or "",
-        usage=SENTINEL_USAGE if is_finished else None,
+        usage=None,
         index=choice.get("index", 0),
         provider_specific_fields=provider_specific_fields or None,
     )

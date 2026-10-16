@@ -78,7 +78,7 @@ class LinerTests(IsolatedAsyncioTestCase):
                             "".join(chunk["text"] for chunk in chunks), "Answer"
                         )
                         self.assertTrue(chunks[-1]["is_finished"])
-                        self.assertEqual(chunks[-1]["usage"]["total_tokens"], 2)
+                        self.assertIsNone(chunks[-1]["usage"])
                         fields = chunks[-1]["provider_specific_fields"]
                     else:
                         result = (
