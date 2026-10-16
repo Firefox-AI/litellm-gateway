@@ -17,7 +17,8 @@ from litellm.llms.custom_llm import CustomLLM
 from litellm.secret_managers.main import get_secret_str
 from litellm.types.utils import GenericStreamingChunk, ModelResponse
 
-DEFAULT_API_BASE = "https://api.exa.ai"
+from litellm_gateway.config import EXA_DEFAULT_API_BASE, EXA_DEFAULT_TIMEOUT
+
 PROVIDER = "exa_citations"
 
 
@@ -42,10 +43,10 @@ def _client(api_base, api_key, kwargs, *, asynchronous=False):
     # not the SDK client (which would also close the shared transport).
     return sdk(
         api_key=key,
-        base_url=api_base or DEFAULT_API_BASE,
+        base_url=api_base or EXA_DEFAULT_API_BASE,
         http_client=transport,
         max_retries=0,
-        timeout=kwargs.get("timeout") or 30.0,
+        timeout=kwargs.get("timeout") or EXA_DEFAULT_TIMEOUT,
         default_headers=kwargs.get("headers"),
         _strict_response_validation=True,
     )

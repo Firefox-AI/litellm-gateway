@@ -18,17 +18,19 @@ from litellm.llms.custom_llm import CustomLLM, CustomLLMError
 from litellm.secret_managers.main import get_secret_str
 from litellm.types.utils import GenericStreamingChunk, ModelResponse
 
-DEFAULT_API_BASE = "https://platform.liner.com/api/v1/agents/quick-answer"
-DEFAULT_TIMEOUT = 120.0
-LINER_ROLES = ("user", "assistant")
+from litellm_gateway.config import (
+    LINER_COST_PER_REQUEST,
+    LINER_DEFAULT_API_BASE,
+    LINER_DEFAULT_TIMEOUT,
+)
 
-COST_PER_REQUEST = 0.003
+LINER_ROLES = ("user", "assistant")
 
 
 def _resolve_api_base(api_base: str | None) -> str:
-    return (api_base or get_secret_str("LINER_API_BASE") or DEFAULT_API_BASE).rstrip(
-        "/"
-    )
+    return (
+        api_base or get_secret_str("LINER_API_BASE") or LINER_DEFAULT_API_BASE
+    ).rstrip("/")
 
 
 @lru_cache(maxsize=1)
@@ -185,7 +187,7 @@ def _transform_response(
 
     model_response.model = model
     model_response.choices[0].finish_reason = "stop"
-    model_response._hidden_params["response_cost"] = COST_PER_REQUEST
+    model_response._hidden_params["response_cost"] = LINER_COST_PER_REQUEST
 
     response_choices = raw.get("choices", [])
     response_references = raw.get("references")
@@ -253,7 +255,7 @@ class LinerLLM(CustomLLM):
             url=_resolve_api_base(api_base),
             headers=_resolve_headers(api_key, headers),
             json=request_body,
-            timeout=timeout or DEFAULT_TIMEOUT,
+            timeout=timeout or LINER_DEFAULT_TIMEOUT,
         )
         return _transform_response(response, model, dropped, model_response)
 
@@ -288,7 +290,7 @@ class LinerLLM(CustomLLM):
             url=_resolve_api_base(api_base),
             headers=_resolve_headers(api_key, headers),
             json=request_body,
-            timeout=timeout or DEFAULT_TIMEOUT,
+            timeout=timeout or LINER_DEFAULT_TIMEOUT,
         )
         return _transform_response(response, model, dropped, model_response)
 
@@ -322,7 +324,7 @@ class LinerLLM(CustomLLM):
             url=_resolve_api_base(api_base),
             headers=_resolve_headers(api_key, headers),
             json=request_body,
-            timeout=timeout or DEFAULT_TIMEOUT,
+            timeout=timeout or LINER_DEFAULT_TIMEOUT,
             stream=True,
         )
         if response is None:
@@ -365,7 +367,7 @@ class LinerLLM(CustomLLM):
             url=_resolve_api_base(api_base),
             headers=_resolve_headers(api_key, headers),
             json=request_body,
-            timeout=timeout or DEFAULT_TIMEOUT,
+            timeout=timeout or LINER_DEFAULT_TIMEOUT,
             stream=True,
         )
         if response is None:

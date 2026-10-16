@@ -20,13 +20,9 @@ from urllib.parse import urlparse
 
 from litellm.integrations.custom_logger import CustomLogger
 
-CHAT_COMPLETIONS_ROUTE = "/v1/chat/completions"
+from litellm_gateway.config import PER_REQUEST_SPEND
 
-# `model_name` from config.yaml
-PER_REQUEST_SPEND = {
-    "exa": 0.005,  # Amount spent per chat completion, budget is .25; 50 requests
-    "liner": 0.003,
-}
+CHAT_COMPLETIONS_ROUTE = "/v1/chat/completions"
 
 
 def _record_get(record, key, default=None):
