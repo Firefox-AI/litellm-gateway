@@ -3,8 +3,13 @@ name: Build and Push Docker Image to Google Artifact Registry
 on:
   push:
     branches: [main]
-  # Manual runs validate the build and tests without publishing.
+  # Manual runs optionally publish a unique candidate, never latest.
   workflow_dispatch:
+    inputs:
+      publish_candidate:
+        description: Publish a candidate image after all checks pass (does not update latest)
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -24,8 +29,9 @@ jobs:
       gar_name: llm-proxy-prod
       project_id: moz-fx-llm-proxy-prod-b0b8
       workload_identity_pool_project_number: "324168772199"
-      should_tag_latest: true
-      push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+      should_tag_latest: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+      image_tag_metadata: ${{ github.event_name == 'workflow_dispatch' && format('candidate-{0}-{1}', github.run_id, github.run_attempt) || '' }}
+      push: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && inputs.publish_candidate) }}
       prebuild_script: |
         set -euo pipefail
         python3 -m venv "$RUNNER_TEMP/gateway-lint"
