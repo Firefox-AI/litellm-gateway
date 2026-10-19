@@ -38,5 +38,22 @@ litellm_settings:
 
 After CI passes, pushes to `main` publish the gateway image.
 
-Images are tagged with the commit SHA, `latest`, and the upstream LiteLLM version.
-Use the commit SHA to pin a deployment; the other tags move with new builds.
+Publishing uses Mozilla's [shared build-and-push workflow](https://github.com/mozilla/deploy-actions/blob/20f90fab6ef13820f2231cb82cc7a272bcfcd525/.github/workflows/build-and-push.yml).
+It runs lint checks before building, then configuration and handler tests against
+the built image before pushing that same image.
+
+Main builds publish a short commit tag (normally 10 characters) and `latest`.
+Use the commit tag or resolved digest to pin an image. Full commit-SHA and upstream
+LiteLLM version tags are no longer published. Existing deployment rules requiring
+40-character tags must be updated before selecting one of these builds.
+
+Manual runs of the publishing workflow build and test without pushing:
+
+```bash
+gh workflow run publish.yml --repo Firefox-AI/litellm-gateway --ref <branch>
+```
+
+The shared workflow authenticates using the configured Google workload identity
+pool and `artifact-writer` service account. It does not use a GitHub `build`
+environment; any environment protections or federation conditions must account
+for that job context.

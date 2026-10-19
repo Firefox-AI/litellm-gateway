@@ -2,74 +2,36 @@ name: Build and Push Docker Image to Google Artifact Registry
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
+  # Manual runs validate the build and tests without publishing.
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 concurrency:
   group: publish-gateway
   cancel-in-progress: false
 
-env:
-  GCP_PROJECT_ID: moz-fx-llm-proxy-prod-b0b8
-  GAR_REPOSITORY: llm-proxy-prod
-  GAR_NAME: litellm-gateway
-  GAR_LOCATION: us
-  GCPV2_GITHUB_WORKLOAD_IDENTITY_PROVIDER: projects/324168772199/locations/global/workloadIdentityPools/github-actions/providers/github-actions
-
 jobs:
-  checks:
-    uses: ./.github/workflows/ci.yml
-    permissions:
-      contents: read
-
   build-and-push:
-    needs: checks
-    runs-on: ubuntu-latest
-    environment: build
     permissions:
       contents: read
       id-token: write
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Read LiteLLM version
-        id: litellm
-        shell: bash
-        run: |
-          VERSION=$(sed -nE 's|^FROM ghcr.io/berriai/litellm-non_root:([^@[:space:]]+).*|\1|p' Dockerfile)
-          if [[ ! "$VERSION" =~ ^[a-zA-Z0-9_][a-zA-Z0-9_.-]{0,127}$ ]]; then
-            echo "Could not extract a valid LiteLLM version tag from Dockerfile" >&2
-            exit 1
-          fi
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-
-      - name: Authenticate to Google Cloud
-        id: gcp-auth
-        uses: google-github-actions/auth@v2
-        with:
-          token_format: access_token
-          service_account: artifact-writer@${{ env.GCP_PROJECT_ID }}.iam.gserviceaccount.com
-          workload_identity_provider: ${{ env.GCPV2_GITHUB_WORKLOAD_IDENTITY_PROVIDER }}
-
-      - name: Login to Google Artifact Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.GAR_LOCATION }}-docker.pkg.dev
-          username: oauth2accesstoken
-          password: ${{ steps.gcp-auth.outputs.access_token }}
-
-      - name: Build and push container image
-        shell: bash
-        env:
-          LITELLM_VERSION: ${{ steps.litellm.outputs.version }}
-        run: |
-          IMAGE_REPO="$GAR_LOCATION-docker.pkg.dev/$GCP_PROJECT_ID/$GAR_REPOSITORY/$GAR_NAME"
-          docker build --platform linux/amd64 \
-            -t "$IMAGE_REPO:$GITHUB_SHA" \
-            -t "$IMAGE_REPO:latest" \
-            -t "$IMAGE_REPO:$LITELLM_VERSION" \
-            .
-          docker push "$IMAGE_REPO:$GITHUB_SHA"
-          docker push "$IMAGE_REPO:latest"
-          docker push "$IMAGE_REPO:$LITELLM_VERSION"
+    uses: mozilla/deploy-actions/.github/workflows/build-and-push.yml@20f90fab6ef13820f2231cb82cc7a272bcfcd525
+    with:
+      image_name: litellm-gateway
+      gar_name: llm-proxy-prod
+      project_id: moz-fx-llm-proxy-prod-b0b8
+      workload_identity_pool_project_number: "324168772199"
+      should_tag_latest: true
+      push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+      prebuild_script: |
+        set -euo pipefail
+        python3 -m venv "$RUNNER_TEMP/gateway-lint"
+        export PATH="$RUNNER_TEMP/gateway-lint/bin:$PATH"
+        python -m pip install -e '.[dev]'
+        ruff check .
+        ruff format --check .
+        python -m compileall -q src scripts tests
+      postbuild_script: scripts/test-image.sh

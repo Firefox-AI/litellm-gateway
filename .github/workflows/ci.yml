@@ -5,7 +5,6 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
-  workflow_call:
 
 permissions:
   contents: read
@@ -47,18 +46,5 @@ jobs:
           tags: litellm-gateway:ci
           cache-from: type=gha
           cache-to: type=gha,mode=max
-      - name: Load mounted configuration and handlers
-        run: |
-          docker run --rm --network none --entrypoint python \
-            --volume "$PWD/scripts/smoke_test.py:/tmp/smoke_test.py:ro" \
-            --volume "$PWD/tests/fixtures/config.yaml:/etc/litellm/config.yaml:ro" \
-            --env LITELLM_LOCAL_MODEL_COST_MAP=True \
-            --env DO_NOT_TRACK=True \
-            litellm-gateway:ci /tmp/smoke_test.py
-      - name: Test handlers in the runtime image
-        run: |
-          docker run --rm --network none --entrypoint python \
-            --volume "$PWD/tests:/tmp/tests:ro" \
-            --env LITELLM_LOCAL_MODEL_COST_MAP=True \
-            --env DO_NOT_TRACK=True \
-            litellm-gateway:ci -m unittest discover -s /tmp/tests -v
+      - name: Test configuration and handlers in the image
+        run: bash scripts/test-image.sh litellm-gateway:ci
