@@ -1,0 +1,16 @@
+model_list:
+  - model_name: liner
+    litellm_params:
+      model: liner/quick-answer
+      api_key: offline-test-key
+  - model_name: exa
+    litellm_params:
+      model: exa_citations/exa
+      api_key: offline-test-key
+litellm_settings:
+  callbacks: [prometheus, litellm_gateway.custom_callbacks.proxy_handler_instance]
+  custom_provider_map:
+    - provider: liner
+      custom_handler: litellm_gateway.liner_handler.liner_llm
+    - provider: exa_citations
+      custom_handler: litellm_gateway.exa_handler.exa_llm

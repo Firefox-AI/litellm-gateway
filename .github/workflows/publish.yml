@@ -5,6 +5,10 @@ on:
     branches:
       - main
 
+concurrency:
+  group: publish-gateway
+  cancel-in-progress: false
+
 env:
   GCP_PROJECT_ID: moz-fx-llm-proxy-prod-b0b8
   GAR_REPOSITORY: llm-proxy-prod
@@ -13,7 +17,13 @@ env:
   GCPV2_GITHUB_WORKLOAD_IDENTITY_PROVIDER: projects/324168772199/locations/global/workloadIdentityPools/github-actions/providers/github-actions
 
 jobs:
+  checks:
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
+
   build-and-push:
+    needs: checks
     runs-on: ubuntu-latest
     environment: build
     permissions:
@@ -27,7 +37,7 @@ jobs:
         id: litellm
         shell: bash
         run: |
-          VERSION=$(sed -nE 's|^FROM ghcr.io/berriai/litellm:([^@[:space:]]+).*|\1|p' Dockerfile)
+          VERSION=$(sed -nE 's|^FROM ghcr.io/berriai/litellm-non_root:([^@[:space:]]+).*|\1|p' Dockerfile)
           if [[ ! "$VERSION" =~ ^[a-zA-Z0-9_][a-zA-Z0-9_.-]{0,127}$ ]]; then
             echo "Could not extract a valid LiteLLM version tag from Dockerfile" >&2
             exit 1
@@ -55,7 +65,7 @@ jobs:
           LITELLM_VERSION: ${{ steps.litellm.outputs.version }}
         run: |
           IMAGE_REPO="$GAR_LOCATION-docker.pkg.dev/$GCP_PROJECT_ID/$GAR_REPOSITORY/$GAR_NAME"
-          docker build \
+          docker build --platform linux/amd64 \
             -t "$IMAGE_REPO:$GITHUB_SHA" \
             -t "$IMAGE_REPO:latest" \
             -t "$IMAGE_REPO:$LITELLM_VERSION" \
