@@ -1,0 +1,61 @@
+name: Tag gateway release
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_tag:
+        description: "Published full commit SHA for an RC, or RC image tag for stable"
+        required: true
+        type: string
+      gateway_version:
+        description: "Gateway version, e.g. 1.0.0-rc.1 or 1.0.0"
+        required: true
+        type: string
+      dry_run:
+        description: "Validate and resolve the image without creating a tag"
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-gateway
+  cancel-in-progress: false
+
+env:
+  GCP_PROJECT_ID: moz-fx-llm-proxy-prod-b0b8
+  GAR_REPOSITORY: llm-proxy-prod
+  GAR_NAME: litellm-gateway
+  GAR_LOCATION: us
+
+jobs:
+  release:
+    if: github.ref == 'refs/heads/main' || inputs.dry_run
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: build
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Authenticate to Google Cloud
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          token_format: access_token
+          service_account: artifact-writer@${{ env.GCP_PROJECT_ID }}.iam.gserviceaccount.com
+          workload_identity_provider: projects/324168772199/locations/global/workloadIdentityPools/github-actions/providers/github-actions
+      - name: Tag the existing image
+        env:
+          ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
+          SOURCE_TAG: ${{ inputs.source_tag }}
+          GATEWAY_VERSION: ${{ inputs.gateway_version }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: python scripts/release_image.py
