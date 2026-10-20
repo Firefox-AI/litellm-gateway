@@ -40,3 +40,25 @@ After CI passes, pushes to `main` publish the gateway image.
 
 Images are tagged with the commit SHA, `latest`, and the upstream LiteLLM version.
 Use the commit SHA to pin a deployment; the other tags move with new builds.
+
+### Gateway releases
+
+Use **Actions → Tag gateway release → Run workflow** on `main`:
+
+1. Create a candidate: set `source_tag` to a published full commit SHA and
+   `gateway_version` to `1.0.0-rc.1`. The upstream version is read from that
+   commit's Dockerfile, producing `litellm-1.84.4-gateway-1.0.0-rc.1`.
+2. Test that candidate with MLPA and in dev/stage.
+3. Promote it: set `source_tag` to `litellm-1.84.4-gateway-1.0.0-rc.1` and
+   `gateway_version` to `1.0.0`. This creates `litellm-1.84.4-gateway-1.0.0`
+   pointing to the same image digest, without rebuilding.
+
+Leave `dry_run` enabled to preview the tag and digest; disable it to publish.
+Branch runs support dry runs only. Existing release tags cannot be overwritten
+by this workflow. Promotion is a manual decision; it does not verify external
+test results automatically.
+
+Increment the gateway version for handler, packaging, or upstream changes; use
+another RC number when revising a candidate. These tags are additional to the
+existing SHA, `latest`, and upstream tags. Deployment pins still need an explicit
+infra update; its current production validation accepts full SHA tags only.
