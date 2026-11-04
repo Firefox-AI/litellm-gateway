@@ -1,6 +1,6 @@
 # Use LiteLLM's non-root runtime to limit process privileges.
 # Pin the digest so builds use the same reviewed base image.
-FROM ghcr.io/berriai/litellm-non_root:v1.84.4@sha256:b6a37a6812de94e55cb22ec45041361af46bb09d630a1cbf0203ac44201441b1
+FROM ghcr.io/berriai/litellm-non_root:v1.108.0@sha256:08d313a00c46509c875d84f60c1448a260c478f399ade3c2abb940d358d5b724
 
 # Keep upstream's entrypoint and command. Tenant configuration is supplied at deployment.
 WORKDIR /app
