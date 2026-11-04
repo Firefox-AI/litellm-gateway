@@ -2,6 +2,7 @@
 
 from types import SimpleNamespace
 from unittest import IsolatedAsyncioTestCase
+from urllib.parse import unquote
 
 from support import loopback_only
 
@@ -11,6 +12,40 @@ from litellm_gateway.custom_callbacks import proxy_handler_instance as handler
 class CallbackTests(IsolatedAsyncioTestCase):
     def setUp(self):
         self.enterContext(loopback_only())
+
+    async def test_key_alias_comes_from_authenticated_key_only(self):
+        for response in (None, SimpleNamespace()):
+            with self.subTest(failure=response is None):
+                headers = await handler.async_post_call_response_headers_hook(
+                    data={"metadata": {"key_alias": "spoofed"}},
+                    user_api_key_dict=SimpleNamespace(
+                        key_alias="evals-stage",
+                        api_key="sk-secret-must-not-leak",
+                        metadata={"private": "must-not-leak"},
+                    ),
+                    response=response,
+                    request_headers={"x-mlpa-key-alias": "spoofed"},
+                )
+                self.assertEqual(headers, {"x-mlpa-key-alias": "evals-stage"})
+
+    async def test_key_alias_is_safe_for_http_headers(self):
+        alias = "evals / café 100%"
+        headers = await handler.async_post_call_response_headers_hook(
+            {}, SimpleNamespace(key_alias=alias), None
+        )
+        encoded = headers["x-mlpa-key-alias"]
+        self.assertTrue(encoded.isascii())
+        self.assertEqual(unquote(encoded), alias)
+        for invalid in (None, "", "   ", "bad\r\nheader", "x" * 256, "\ud800"):
+            with self.subTest(alias=repr(invalid)):
+                self.assertEqual(
+                    await handler.async_post_call_response_headers_hook(
+                        {"metadata": {"key_alias": "spoofed"}},
+                        SimpleNamespace(key_alias=invalid),
+                        None,
+                    ),
+                    {},
+                )
 
     async def test_flat_rate_billing_and_exclusions(self):
         for model, route, expected in (

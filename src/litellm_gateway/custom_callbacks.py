@@ -1,4 +1,4 @@
-"""LiteLLM proxy callback for flat-rate chat-completion spend accounting.
+"""LiteLLM proxy callbacks for spend accounting and virtual-key attribution.
 
 Exa and Liner answers are priced per query, but LiteLLM's cost calculator has no
 per-request pricing for chat completions -- `input_cost_per_request` exists in the
@@ -16,13 +16,14 @@ streaming response from these same objects only after the iterator is exhausted.
 Failed requests, other models, and calls made through other routes are ignored.
 """
 
-from urllib.parse import urlparse
+from urllib.parse import quote, urlparse
 
 from litellm.integrations.custom_logger import CustomLogger
 
 from litellm_gateway.config import PER_REQUEST_SPEND
 
 CHAT_COMPLETIONS_ROUTE = "/v1/chat/completions"
+KEY_ALIAS_HEADER = "x-mlpa-key-alias"
 
 
 def _record_get(record, key, default=None):
@@ -60,6 +61,30 @@ def _request_route(data):
 
 
 class MyCustomHandler(CustomLogger):
+    async def async_post_call_response_headers_hook(
+        self,
+        data,
+        user_api_key_dict,
+        response,
+        request_headers=None,
+        litellm_call_info=None,
+    ):
+        """Identify the authenticated key to MLPA without exposing credentials.
+
+        Only the resolved key record is authoritative: request metadata and
+        client headers must not be able to choose the accounting alias.
+        Percent-encoding preserves Unicode aliases in an ASCII HTTP header.
+        """
+        alias = _record_get(user_api_key_dict, "key_alias")
+        if (
+            not isinstance(alias, str)
+            or not alias.strip()
+            or len(alias) > 255
+            or not alias.isprintable()
+        ):
+            return {}
+        return {KEY_ALIAS_HEADER: quote(alias, safe="")}
+
     async def async_post_call_success_hook(self, data, user_api_key_dict, response):
         spend = self._per_request_spend(data)
         if spend is None:

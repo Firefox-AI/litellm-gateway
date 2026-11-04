@@ -78,11 +78,22 @@ def wait_ready(client, process, log):
 
 
 @contextmanager
-def proxy():
+def proxy(key_alias=None):
     with TemporaryDirectory() as directory, mock_exa(respond) as (upstream, requests):
         tmp_path = Path(directory)
         config = tmp_path / "config.yaml"
-        config.write_text(json.dumps(proxy_config(upstream)))
+        settings = proxy_config(upstream)
+        if key_alias is not None:
+            auth = tmp_path / "test_auth.py"
+            auth.write_text(
+                "from litellm.proxy._types import UserAPIKeyAuth\n"
+                "async def authenticate(request, api_key):\n"
+                f"    return UserAPIKeyAuth(key_alias={key_alias!r})\n"
+            )
+            settings["general_settings"] = {
+                "custom_auth": "test_auth.authenticate",
+            }
+        config.write_text(json.dumps(settings))
         # LiteLLM resolves handlers beside its config; use the package in the image.
         (tmp_path / "litellm_gateway").symlink_to(PACKAGE_DIR, target_is_directory=True)
         with socket.socket() as sock:
@@ -129,11 +140,13 @@ class ExaProxyTests(TestCase):
         self.enterContext(loopback_only())
 
     def test_proxy(self):
-        with proxy() as (client, requests):
+        with proxy(key_alias="performance-stage") as (client, requests):
+            client.headers["x-mlpa-key-alias"] = "client-spoof"
             url = "/v1/chat/completions"
             body = {"model": "exa", "messages": MESSAGES}
             response = client.post(url, json=body)
             self.assertEqual(response.status_code, 200, response.text)
+            self.assertEqual(response.headers["x-mlpa-key-alias"], "performance-stage")
             message = response.json()["choices"][0]["message"]
             self.assertEqual(message["content"], "Answer")
             self.assertEqual(
@@ -143,6 +156,9 @@ class ExaProxyTests(TestCase):
             chunks, done = [], False
             with client.stream("POST", url, json={**body, "stream": True}) as response:
                 response.raise_for_status()
+                self.assertEqual(
+                    response.headers["x-mlpa-key-alias"], "performance-stage"
+                )
                 self.assertTrue(
                     response.headers["content-type"].startswith("text/event-stream")
                 )
