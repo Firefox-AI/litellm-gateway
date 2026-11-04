@@ -3,4 +3,6 @@
 !src/
 !src/litellm_gateway/
 !src/litellm_gateway/**
+!scripts/
+!scripts/patch_accounting.py
 **/__pycache__/

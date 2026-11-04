@@ -7,6 +7,11 @@ WORKDIR /app
 COPY src/litellm_gateway/ /app/litellm_gateway/
 ENV PYTHONPATH=/app
 
+# Guard every accounting patch against the pinned upstream source. A LiteLLM
+# upgrade must explicitly review/rebase these patches before it can build.
+COPY scripts/patch_accounting.py /tmp/patch_accounting.py
+RUN python /tmp/patch_accounting.py /app/litellm/proxy
+
 # LiteLLM loads handlers relative to the supplied config path. Keep that path
 # beside the package while Kubernetes mounts only configuration under /etc.
 RUN ln -sfn /etc/litellm/config.yaml /app/config.yaml
