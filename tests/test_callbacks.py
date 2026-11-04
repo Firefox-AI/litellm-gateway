@@ -2,7 +2,6 @@
 
 from types import SimpleNamespace
 from unittest import IsolatedAsyncioTestCase
-from urllib.parse import unquote
 
 from support import loopback_only
 
@@ -13,36 +12,59 @@ class CallbackTests(IsolatedAsyncioTestCase):
     def setUp(self):
         self.enterContext(loopback_only())
 
-    async def test_key_alias_comes_from_authenticated_key_only(self):
-        for response in (None, SimpleNamespace()):
-            with self.subTest(failure=response is None):
-                headers = await handler.async_post_call_response_headers_hook(
-                    data={"metadata": {"key_alias": "spoofed"}},
-                    user_api_key_dict=SimpleNamespace(
-                        key_alias="evals-stage",
-                        api_key="sk-secret-must-not-leak",
-                        metadata={"private": "must-not-leak"},
-                    ),
-                    response=response,
-                    request_headers={"x-mlpa-key-alias": "spoofed"},
-                )
-                self.assertEqual(headers, {"x-mlpa-key-alias": "evals-stage"})
+    async def test_workload_groups_distinct_keys_using_authenticated_metadata(self):
+        for alias in ("evals-nightly-key-1", "evals-manual-key-2"):
+            for response in (None, SimpleNamespace()):
+                with self.subTest(alias=alias, failure=response is None):
+                    headers = await handler.async_post_call_response_headers_hook(
+                        data={"metadata": {"workload": "load_test"}},
+                        user_api_key_dict=SimpleNamespace(
+                            key_alias=alias,
+                            api_key="sk-secret-must-not-leak",
+                            metadata={"workload": "eval", "private": "must-not-leak"},
+                        ),
+                        response=response,
+                        request_headers={"x-mlpa-workload": "load_test"},
+                    )
+                    self.assertEqual(headers, {"x-mlpa-workload": "eval"})
 
-    async def test_key_alias_is_safe_for_http_headers(self):
-        alias = "evals / café 100%"
-        headers = await handler.async_post_call_response_headers_hook(
-            {}, SimpleNamespace(key_alias=alias), None
-        )
-        encoded = headers["x-mlpa-key-alias"]
-        self.assertTrue(encoded.isascii())
-        self.assertEqual(unquote(encoded), alias)
-        for invalid in (None, "", "   ", "bad\r\nheader", "x" * 256, "\ud800"):
-            with self.subTest(alias=repr(invalid)):
+    async def test_workload_values_are_bounded(self):
+        for workload in ("eval", "load_test"):
+            with self.subTest(workload=workload):
+                headers = await handler.async_post_call_response_headers_hook(
+                    {}, {"metadata": {"workload": workload}}, None
+                )
+                self.assertEqual(headers, {"x-mlpa-workload": workload})
+        for metadata in (
+            None,
+            {},
+            [],
+            '{"workload":"eval"}',
+            *(
+                {"workload": value}
+                for value in (
+                    None,
+                    "",
+                    "other",
+                    "eval-run-123",
+                    "load test",
+                    "EVAL",
+                    " eval ",
+                    "bad\r\nheader",
+                    "\ud800",
+                    [],
+                    {},
+                    1,
+                )
+            ),
+        ):
+            with self.subTest(metadata=repr(metadata)):
                 self.assertEqual(
                     await handler.async_post_call_response_headers_hook(
-                        {"metadata": {"key_alias": "spoofed"}},
-                        SimpleNamespace(key_alias=invalid),
+                        {"metadata": {"workload": "eval"}},
+                        SimpleNamespace(key_alias="eval", metadata=metadata),
                         None,
+                        request_headers={"x-mlpa-workload": "eval"},
                     ),
                     {},
                 )

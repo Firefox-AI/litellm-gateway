@@ -16,14 +16,15 @@ streaming response from these same objects only after the iterator is exhausted.
 Failed requests, other models, and calls made through other routes are ignored.
 """
 
-from urllib.parse import quote, urlparse
+from urllib.parse import urlparse
 
 from litellm.integrations.custom_logger import CustomLogger
 
 from litellm_gateway.config import PER_REQUEST_SPEND
 
 CHAT_COMPLETIONS_ROUTE = "/v1/chat/completions"
-KEY_ALIAS_HEADER = "x-mlpa-key-alias"
+WORKLOAD_HEADER = "x-mlpa-workload"
+ATTRIBUTION_WORKLOADS = frozenset({"eval", "load_test"})
 
 
 def _record_get(record, key, default=None):
@@ -69,21 +70,19 @@ class MyCustomHandler(CustomLogger):
         request_headers=None,
         litellm_call_info=None,
     ):
-        """Identify the authenticated key to MLPA without exposing credentials.
+        """Attribute requests using metadata on the authenticated virtual key.
 
         Only the resolved key record is authoritative: request metadata and
-        client headers must not be able to choose the accounting alias.
-        Percent-encoding preserves Unicode aliases in an ASCII HTTP header.
+        client headers must not be able to choose the accounting workload.
+        Only bounded workload names are emitted, never unique key aliases.
         """
-        alias = _record_get(user_api_key_dict, "key_alias")
-        if (
-            not isinstance(alias, str)
-            or not alias.strip()
-            or len(alias) > 255
-            or not alias.isprintable()
-        ):
+        metadata = _record_get(user_api_key_dict, "metadata")
+        if not isinstance(metadata, dict):
             return {}
-        return {KEY_ALIAS_HEADER: quote(alias, safe="")}
+        workload = metadata.get("workload")
+        if not isinstance(workload, str) or workload not in ATTRIBUTION_WORKLOADS:
+            return {}
+        return {WORKLOAD_HEADER: workload}
 
     async def async_post_call_success_hook(self, data, user_api_key_dict, response):
         spend = self._per_request_spend(data)

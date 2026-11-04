@@ -78,7 +78,7 @@ def wait_ready(client, process, log):
 
 
 @contextmanager
-def proxy(key_alias=None):
+def proxy(key_alias=None, workload=None):
     with TemporaryDirectory() as directory, mock_exa(respond) as (upstream, requests):
         tmp_path = Path(directory)
         config = tmp_path / "config.yaml"
@@ -88,7 +88,8 @@ def proxy(key_alias=None):
             auth.write_text(
                 "from litellm.proxy._types import UserAPIKeyAuth\n"
                 "async def authenticate(request, api_key):\n"
-                f"    return UserAPIKeyAuth(key_alias={key_alias!r})\n"
+                f"    return UserAPIKeyAuth(key_alias={key_alias!r}, "
+                f"metadata={{'workload': {workload!r}}})\n"
             )
             settings["general_settings"] = {
                 "custom_auth": "test_auth.authenticate",
@@ -140,13 +141,21 @@ class ExaProxyTests(TestCase):
         self.enterContext(loopback_only())
 
     def test_proxy(self):
-        with proxy(key_alias="performance-stage") as (client, requests):
-            client.headers["x-mlpa-key-alias"] = "client-spoof"
+        with proxy(key_alias="performance-stage-key-1", workload="load_test") as (
+            client,
+            requests,
+        ):
+            client.headers["x-mlpa-workload"] = "eval"
             url = "/v1/chat/completions"
-            body = {"model": "exa", "messages": MESSAGES}
+            body = {
+                "model": "exa",
+                "messages": MESSAGES,
+                "metadata": {"workload": "eval"},
+            }
             response = client.post(url, json=body)
             self.assertEqual(response.status_code, 200, response.text)
-            self.assertEqual(response.headers["x-mlpa-key-alias"], "performance-stage")
+            self.assertEqual(response.headers["x-mlpa-workload"], "load_test")
+            self.assertNotIn("x-mlpa-key-alias", response.headers)
             message = response.json()["choices"][0]["message"]
             self.assertEqual(message["content"], "Answer")
             self.assertEqual(
@@ -156,9 +165,7 @@ class ExaProxyTests(TestCase):
             chunks, done = [], False
             with client.stream("POST", url, json={**body, "stream": True}) as response:
                 response.raise_for_status()
-                self.assertEqual(
-                    response.headers["x-mlpa-key-alias"], "performance-stage"
-                )
+                self.assertEqual(response.headers["x-mlpa-workload"], "load_test")
                 self.assertTrue(
                     response.headers["content-type"].startswith("text/event-stream")
                 )

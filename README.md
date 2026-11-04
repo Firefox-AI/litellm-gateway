@@ -36,17 +36,26 @@ litellm_settings:
 
 ## Virtual-key cost attribution
 
-Register keys with a stable, unique `key_alias` such as `evals-stage` or
-`performance-stage`. LiteLLM already stores spend against the key; join spend
-records to `LiteLLM_VerificationToken` for its alias and metadata.
+Give each key a unique `key_alias`, and register shared workload metadata to
+group keys for cost attribution. For example, two keys with aliases
+`eval-nightly-key-1` and `eval-manual-key-2` can both have
+`metadata: {"workload": "eval"}`. Performance keys use
+`metadata: {"workload": "load_test"}`. Aliases identify keys; workload values
+identify accounting buckets and do not have to be unique.
 
-The registered callback also sends `x-mlpa-key-alias` on upstream responses so
-MLPA can label its cost/usage metrics and structured logs. The value comes only
-from LiteLLM's authenticated key record, never from client-supplied headers or
-metadata. It identifies the actual key, including MLPA's default key when a
-custom key was not used. The value is UTF-8 percent-encoded for HTTP transport;
-missing or invalid aliases omit the header. No key secret or key metadata is
-included. MLPA consumes this header internally without forwarding it to clients.
+The registered callback sends `x-mlpa-workload` on upstream responses so MLPA
+can label its cost/usage metrics and structured logs. It reads only
+`metadata.workload` on LiteLLM's authenticated key record, never client-supplied
+headers or request metadata. Only `eval` and `load_test` are supported; missing
+or unsupported values omit the header. MLPA records those responses as
+`unknown`, including unclassified shared default keys. Unique aliases, key
+secrets, and other metadata are not emitted. MLPA consumes the header internally
+without forwarding it to clients. Adding a new bucket requires updating both
+the gateway allowlist and MLPA's consumer.
+
+LiteLLM already stores spend against the key; join spend records to
+`LiteLLM_VerificationToken` for its alias and `metadata.workload`. No new key
+registration endpoint or database schema is required.
 
 Deploy this gateway callback before or alongside the MLPA consumer. Older MLPA
 versions ignore the header; newer consumers report `unknown` for responses from
