@@ -34,6 +34,14 @@ litellm_settings:
       custom_handler: litellm_gateway.exa_handler.exa_llm
 ```
 
+## Schema check
+
+`python -m litellm_gateway.schema_check` runs as an init container. It waits until
+the database has every migration this image ships, so a pod can't start against a
+schema that the migrations Job hasn't caught up yet. It reads `DATABASE_USERNAME`,
+`DATABASE_PASSWORD`, `DATABASE_HOST`, `DATABASE_PORT` and `DATABASE_NAME`, and gives
+up after `MIGRATION_CHECK_TIMEOUT_S` (default 300) seconds.
+
 ## Publishing
 
 After CI passes, pushes to `main` publish the gateway image.
