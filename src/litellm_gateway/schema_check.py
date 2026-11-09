@@ -21,7 +21,10 @@ def shipped_migrations():
     import litellm_proxy_extras
 
     migrations = Path(litellm_proxy_extras.__file__).parent / "migrations"
-    return {p.name for p in migrations.iterdir() if p.is_dir()}
+    shipped = {p.name for p in migrations.iterdir() if p.is_dir()}
+    if not shipped:
+        sys.exit(f"{TAG} no migrations found in {migrations}")
+    return shipped
 
 
 async def applied_migrations(url):

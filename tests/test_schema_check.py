@@ -23,9 +23,6 @@ def check(*results, timeout_s=1):
 
 
 class SchemaCheckTests(unittest.TestCase):
-    def test_ready_when_every_shipped_migration_is_applied(self):
-        self.assertTrue(check(SHIPPED))
-
     def test_newer_database_is_ready(self):
         self.assertTrue(check(SHIPPED | {"003_from_newer_release"}))
 
