@@ -48,9 +48,12 @@ can label its cost/usage metrics and structured logs. It reads only
 `metadata.workload` on LiteLLM's authenticated key record, never client-supplied
 headers or request metadata. Only `eval` and `load_test` are supported; missing
 or unsupported values omit the header. MLPA records those responses as
-`unknown`, including unclassified shared default keys. Unique aliases, key
-secrets, and other metadata are not emitted. MLPA consumes the header internally
-without forwarding it to clients. Adding a new bucket requires updating both
+`unknown`, including unclassified shared default keys. Independently, the callback
+returns the authenticated `key_alias` in `x-mlpa-key-alias`, percent-encoded for
+HTTP headers. Missing or invalid workload metadata does not suppress the alias,
+and an invalid alias does not suppress a valid workload. Key secrets and other
+metadata are not emitted. MLPA consumes both headers internally without
+forwarding them to clients. Adding a new bucket requires updating both
 the gateway allowlist and MLPA's consumer.
 
 LiteLLM already stores spend against the key; join spend records to

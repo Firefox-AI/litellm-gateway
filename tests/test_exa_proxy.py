@@ -155,7 +155,9 @@ class ExaProxyTests(TestCase):
             response = client.post(url, json=body)
             self.assertEqual(response.status_code, 200, response.text)
             self.assertEqual(response.headers["x-mlpa-workload"], "load_test")
-            self.assertNotIn("x-mlpa-key-alias", response.headers)
+            self.assertEqual(
+                response.headers["x-mlpa-key-alias"], "performance-stage-key-1"
+            )
             message = response.json()["choices"][0]["message"]
             self.assertEqual(message["content"], "Answer")
             self.assertEqual(
@@ -166,6 +168,9 @@ class ExaProxyTests(TestCase):
             with client.stream("POST", url, json={**body, "stream": True}) as response:
                 response.raise_for_status()
                 self.assertEqual(response.headers["x-mlpa-workload"], "load_test")
+                self.assertEqual(
+                    response.headers["x-mlpa-key-alias"], "performance-stage-key-1"
+                )
                 self.assertTrue(
                     response.headers["content-type"].startswith("text/event-stream")
                 )

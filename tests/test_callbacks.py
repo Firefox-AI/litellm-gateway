@@ -24,9 +24,14 @@ class CallbackTests(IsolatedAsyncioTestCase):
                             metadata={"workload": "eval", "private": "must-not-leak"},
                         ),
                         response=response,
-                        request_headers={"x-mlpa-workload": "load_test"},
+                        request_headers={
+                            "x-mlpa-workload": "load_test",
+                            "x-mlpa-key-alias": "spoof",
+                        },
                     )
-                    self.assertEqual(headers, {"x-mlpa-workload": "eval"})
+                    self.assertEqual(
+                        headers, {"x-mlpa-key-alias": alias, "x-mlpa-workload": "eval"}
+                    )
 
     async def test_workload_values_are_bounded(self):
         for workload in ("eval", "load_test"):
@@ -66,8 +71,24 @@ class CallbackTests(IsolatedAsyncioTestCase):
                         None,
                         request_headers={"x-mlpa-workload": "eval"},
                     ),
-                    {},
+                    {"x-mlpa-key-alias": "eval"},
                 )
+
+    async def test_alias_validation_does_not_suppress_workload(self):
+        for alias in (None, "", "   ", "x" * 256, "bad\r\nheader", "\ud800", []):
+            with self.subTest(alias=repr(alias)):
+                self.assertEqual(
+                    await handler.async_post_call_response_headers_hook(
+                        {}, {"key_alias": alias, "metadata": {"workload": "eval"}}, None
+                    ),
+                    {"x-mlpa-workload": "eval"},
+                )
+        self.assertEqual(
+            await handler.async_post_call_response_headers_hook(
+                {}, {"key_alias": "éval / nightly"}, None
+            ),
+            {"x-mlpa-key-alias": "%C3%A9val%20%2F%20nightly"},
+        )
 
     async def test_flat_rate_billing_and_exclusions(self):
         for model, route, expected in (
