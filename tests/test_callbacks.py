@@ -92,6 +92,4 @@ class CallbackTests(IsolatedAsyncioTestCase):
                         [_ async for _ in stream_hook(None, chunks(), data)]
                     else:
                         await handler.async_post_call_success_hook(data, None, response)
-                    self.assertEqual(
-                        response._hidden_params["response_cost"], expected
-                    )
+                    self.assertEqual(response._hidden_params["response_cost"], expected)
