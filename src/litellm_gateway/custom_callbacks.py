@@ -7,6 +7,16 @@ model cost map but nothing reads it. For successful requests to the models in
 `_hidden_params["response_cost"]` to that model's fixed per-request charge.
 LiteLLM then uses that value when writing its normal spend records.
 
+The charge is keyed on the deployment that actually served the request
+(`metadata["deployment_model_name"]`, the `model_name` from the config), not on
+the model string the client sent. A client can address a deployment by its
+underlying `litellm_params.model` string (e.g. `exa_citations/exa` instead of
+`exa`); LiteLLM still routes it to the same deployment, so keying on the client
+string would let that spelling reach Exa/Liner with no charge recorded.
+`deployment_model_name` is the same for every spelling that resolves to the
+deployment. When it is absent (not a routed deployment) we fall back to the
+client string, which keeps the plain-name path charged.
+
 The streaming hook is not something a provider handler could do instead:
 CustomStreamWrapper builds its own chunk objects and stamps
 `"response_cost": None` onto every one of them, discarding whatever the handler
@@ -84,9 +94,17 @@ class MyCustomHandler(CustomLogger):
             yield chunk
 
     @staticmethod
+    def _resolved_model(data):
+        """The deployment that served the request, independent of how the client
+        spelled the model. Falls back to the client's model string when the
+        request did not resolve to a routed deployment."""
+        metadata = data.get("metadata") or {}
+        return metadata.get("deployment_model_name") or data.get("model")
+
+    @staticmethod
     def _per_request_spend(data):
         """Flat charge for this request, or None if it is not a flat-rate call."""
-        spend = PER_REQUEST_SPEND.get(data.get("model"))
+        spend = PER_REQUEST_SPEND.get(MyCustomHandler._resolved_model(data))
         if spend is None:
             return None
 
